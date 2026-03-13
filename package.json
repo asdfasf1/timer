@@ -14,11 +14,15 @@
     "directories": {
       "output": "dist_native"
     },
-    "win": {
-      "icon": "tomato.ico",
-      "target": "portable"
+"win": {
+  "icon": "tomato.ico",
+  "target": [
+    {
+      "target": "dir",
+      "arch": ["x64"]
     }
-  },
+  ]
+},
   "devDependencies": {
     "electron": "^29.0.0",
     "electron-builder": "^26.8.1"
