@@ -738,6 +738,7 @@
   .mini-ui {
     position: fixed; inset: 0;
     display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
     background: var(--bg); /*     ( */
     color: var(--text); /*     */
     -webkit-app-region: drag; /* Electron   */
@@ -747,8 +748,9 @@
   .mini-drag-handle { display: none; } /*       */
 
   .mini-content {
-    flex: 1; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 16px; gap: 12px;
+    display: inline-flex; align-items: center; justify-content: flex-start;
+    padding: 10px 16px; gap: 12px;
+    width: max-content;
   }
   
   .mini-time {
@@ -894,6 +896,7 @@ function updateButtons() {
     startBtn.classList.remove('danger'); startBtn.classList.add('primary');
   }
   if (typeof updateBreathing === 'function') updateBreathing();
+  queueMiniWindowResize();
 }
 
 /* arc */
@@ -1006,6 +1009,7 @@ function render(){
   updateHandle();
   curStyle===1 ? drawArc() : drawDial();
   updatePreviews();
+  queueMiniWindowResize();
 }
 
 /* drag */
@@ -1480,13 +1484,32 @@ alwaysOnBtn.addEventListener('click', async ()=>{
 /* --- Mini Mode Logic --- */
 const miniModeBtn = $('mini-mode-btn');
 const miniUi = $('mini-ui');
+const miniContent = miniUi.querySelector('.mini-content');
 
-//  - Electron   창 크    
-function setAppWindowSize(isMini) {
+let miniResizeFrame = 0;
+
+function requestWindowResize(size) {
   if (window.electronAPI && typeof window.electronAPI.resizeWindow === 'function') {
-    //    30~40px)   110px   ( 
-    window.electronAPI.resizeWindow(isMini ? { width: 250, height: 110 } : { width: 380, height: 600 });
+    window.electronAPI.resizeWindow(size);
   }
+}
+
+function resizeMiniWindowToFit() {
+  if (!document.body.classList.contains('mini-mode')) return;
+
+  const width = Math.ceil(miniContent.getBoundingClientRect().width);
+  const height = Math.ceil(miniContent.getBoundingClientRect().height);
+
+  requestWindowResize({ mini: true, width, height });
+}
+
+function queueMiniWindowResize() {
+  if (!document.body.classList.contains('mini-mode')) return;
+
+  cancelAnimationFrame(miniResizeFrame);
+  miniResizeFrame = requestAnimationFrame(() => {
+    miniResizeFrame = requestAnimationFrame(resizeMiniWindowToFit);
+  });
 }
 
 let wasAlwaysOnBeforeMini = false; //      
@@ -1494,7 +1517,7 @@ let wasAlwaysOnBeforeMini = false; //
 function enterMiniMode() {
   document.body.classList.add('mini-mode');
   miniUi.classList.remove('hidden');
-  setAppWindowSize(true);
+  queueMiniWindowResize();
   
   //     Always On Top  
   if (alwaysOnBridge) {
@@ -1507,7 +1530,7 @@ function enterMiniMode() {
 function exitMiniMode() {
   document.body.classList.remove('mini-mode');
   miniUi.classList.add('hidden');
-  setAppWindowSize(false);
+  requestWindowResize({ mini: false, width: 380, height: 600 });
   
   //      Always On Top  
   if (alwaysOnBridge) {
