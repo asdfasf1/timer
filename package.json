@@ -1,20 +1,21 @@
 {
-  "name": "pomodoro-app",
+  "name": "hodu-timer",
   "version": "1.0.0",
-  "description": "Vibe Coding Pomodoro Timer",
+  "description": "Pomodoro Timer",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win"
   },
   "build": {
-    "appId": "com.vibecoding.pomodoro",
-    "compression": "store",
-    "asar": false,
+    "appId": "com.hodu.timer",
+    "compression": "maximum",
+    "asar": true,
     "directories": {
       "output": "dist_native"
     },
     "win": {
+      "icon": "tomato.ico",
       "target": "portable"
     }
   },

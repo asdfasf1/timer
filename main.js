@@ -2,12 +2,14 @@
 const path = require('path');
 
 let mainWindow;
+const iconPath = path.join(__dirname, 'tomato.ico');
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 380,
     height: 600,
     resizable: true,
+    icon: iconPath,
     frame: true, 
     transparent: false, 
     webPreferences: {
