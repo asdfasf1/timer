@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --accent: #6c7fe8; }
+    [data-accent="tomato"]     { --accent: #e05a4e; }
+    [data-accent="periwinkle"] { --accent: #6c7fe8; }
+    [data-accent="sage"]       { --accent: #5ba87a; }
+    [data-accent="amber"]      { --accent: #e8933e; }
+    [data-accent="violet"]     { --accent: #7a5ce6; }
+
+    [data-theme="dark"][data-dark-variant="cool"] {
+      --bg: #0f1217; --text: #e7ecf3; --muted: #7f8a99; --inactive: #556272;
+      --track: #2b3442; --border: #242c38; --btn: #171d26;
+      --btn-hover: #202836; --panel: #121821;
+    }
+    [data-theme="dark"][data-dark-variant="warm"] {
+      --bg: #1c1a19; --text: #e6e2dd; --muted: #8c837b; --inactive: #665b53;
+      --track: #3d3530; --border: #332d29; --btn: #26221f;
+      --btn-hover: #2e2a26; --panel: #211e1c;
+    }
+    [data-theme="dark"][data-dark-variant="neutral"] {
+      --bg: #141414; --text: #e6e6e6; --muted: #888888; --inactive: #5a5a5a;
+      --track: #2c2c2c; --border: #242424; --btn: #1c1c1c;
+      --btn-hover: #252525; --panel: #181818;
+    }
+    [data-theme="light"][data-light-variant="cool"] {
+      --bg: #edf1f6; --text: #111827; --muted: #7a8597; --inactive: #a1adbd;
+      --track: #d6dde8; --border: #dce3ee; --btn: #f6f8fb;
+      --btn-hover: #eaf0f8; --panel: #ffffff;
+    }
+    [data-theme="light"][data-light-variant="warm"] {
+      --bg: #f9f8f6; --text: #2d2a26; --muted: #857f78; --inactive: #b5b0a8;
+      --track: #e0dcd5; --border: #e8e6e1; --btn: #f0ece6;
+      --btn-hover: #e6e2da; --panel: #ffffff;
+    }
+    [data-theme="light"][data-light-variant="neutral"] {
+      --bg: #f2f2f2; --text: #1a1a1a; --muted: #7a7a7a; --inactive: #aaaaaa;
+      --track: #d8d8d8; --border: #e0e0e0; --btn: #fafafa;
+      --btn-hover: #ebebeb; --panel: #ffffff;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+
+
+    /*    */
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Google Sans', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex; align-items: flex-start; justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 10px;
+      padding-top: 10px;
+      transition: background 0.3s, color 0.3s;
+      overflow-x: auto;
+      overflow-y: auto;
+      box-sizing: border-box;
+      flex-direction: row;
+      gap: 20px;
+    }
+    
+    .app {
+      width: min(360px, 92vw);
+      display: flex; flex-direction: column; gap: 10px;
+      flex-shrink: 0;
+    }
+
+    /* topbar */
+    .topbar {
+      display: flex; align-items: center; justify-content: flex-end;
+      padding: 2px 8px 0; /* 타   ( 8px -> 2px) */
+      background: transparent;
+      border: none;
+    }
+    .topbar-right { display: flex; gap: 6px; }
+    .icon-btn {
+      width: 30px; height: 30px; border-radius: 7px;
+      border: none; background: transparent;
+      color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; overflow-x: auto;
+      font-size: 0.9rem; transition: background 0.15s, color 0.15s;
+    }
+    .icon-btn:hover { background: var(--btn-hover); color: var(--text); }
+    .icon-btn.on { background: var(--text); color: var(--bg); }
+    .icon-btn.unsupported { opacity: 0.56; cursor: not-allowed; }
+    .icon-btn.unsupported:hover { background: transparent; color: var(--muted); }
+
+    /* card */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 24px 24px;
+      display: flex; flex-direction: column; align-items: center; gap: 28px;
+    }
+
+    /* timer */
+    .timer-wrap {
+      position: relative;
+      width: 220px; height: 220px;
+      display: flex; align-items: center; justify-content: center; overflow-x: auto;
+    }
+    .timer-wrap canvas,
+    .timer-wrap svg.dial-svg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+    }
+    #handle-svg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 2;
+    }
+    .drag-dot {
+      fill: var(--text);
+      pointer-events: auto; cursor: grab;
+      transition: fill 0.15s;
+    }
+    .drag-dot:hover { fill: var(--accent); }
+    .drag-dot:active { cursor: grabbing; }
+
+    /* mode tabs */
+    .mode-tabs {
+      display: flex; justify-content: center; overflow-x: auto; gap: 8px;
+      background: transparent; border: none;
+      padding: 0 4px; margin-bottom: 8px;
+    }
+    .mode-tab {
+      padding: 6px 14px; border: 1px solid transparent; border-radius: 20px;
+      background: transparent; color: var(--muted);
+      font-family: inherit; font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .mode-tab.active {
+      background: var(--panel); color: var(--text);
+      border-color: var(--border); box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    }
+    .mode-tab:hover:not(.active) { color: var(--text); }
+
+    .time-display {
+      font-family: 'Outfit', 'Google Sans', 'Product Sans', sans-serif;
+      font-size: 3.2rem; font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--text); z-index: 3; pointer-events: none;
+    }
+
+    /* controls & presets */
+    .preset-container {
+      display: flex; gap: 8px; justify-content: center; overflow-x: auto; align-items: center;
+      width: 100%; min-height: 28px; margin-top: -12px; margin-bottom: 2px;
+    }
+    .p-btn {
+      padding: 5px 14px; border-radius: 12px;
+      background: var(--btn); border: 1px solid var(--border);
+      color: var(--text); font-size: 0.75rem; font-weight: 500;
+      cursor: pointer; transition: background 0.15s, transform 0.1s;
+      font-family: inherit;
+    }
+    .p-btn:hover { background: var(--btn-hover); }
+    .p-btn:active { transform: scale(0.96); }
+    .p-empty { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.05em; }
+
+    .controls { display: flex; gap: 8px; width: 100%; }
+    .btn {
+      flex: 1; padding: 11px 0;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: var(--btn); color: var(--text);
+      font-family: inherit;
+      font-size: 0.72rem; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
+    }
+    .btn:hover { background: var(--btn-hover); color: var(--text); }
+    .btn:active { transform: scale(0.98); }
+    .btn.primary {
+      background: var(--text); color: var(--bg);
+      border-color: transparent; font-weight: 600;
+    }
+    .btn.primary:hover { opacity: 0.86; }
+    .btn.danger {
+      background: #ff4757; color: #fff;
+      border-color: transparent; font-weight: 600;
+    }
+    .btn.danger:hover { opacity: 0.9; }
+
+    /* settings */
+    .settings {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 20px; padding: 22px 20px;
+      display: flex; flex-direction: column; gap: 22px;
+      animation: fadeUp 0.16s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(5px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* To-Do Layout */
+      .app { transition: margin 0.3s; }
+    .app {
+      width: min(360px, 92vw);
+      display: flex; flex-direction: column; gap: 10px;
+      flex-shrink: 0;
+    }
+    
+    .todo-panel {
+      flex: 1; min-width: 250px; max-width: 400px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      display: none;
+      flex-direction: column;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+    body.show-todo .todo-panel {
+      display: flex;
+    }
+    
+    .todo-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px;
+    }
+    .todo-title {
+      font-size: 1.1rem; font-weight: 600; color: var(--text);
+    }
+    .todo-clear-btn {
+      background: var(--btn); border: 1px solid var(--border);
+      padding: 4px 8px; border-radius: 6px; color: var(--text);
+      font-size: 0.75rem; cursor: pointer; transition: 0.15s;
+    }
+    .todo-clear-btn:hover { background: #e05a4e; color: white; border-color: #e05a4e; }
+    
+    .todo-input-wrap {
+      display: flex; gap: 8px; margin-bottom: 18px;
+    }
+    .todo-input {
+      flex: 1; padding: 11px 14px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text);
+      font-family: inherit; font-size: 0.9rem;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .todo-input:focus { outline: none; border-color: var(--accent); }
+    .todo-add-btn {
+      min-width: 48px; padding: 0 16px;
+      background: var(--text); color: var(--bg);
+      border: 1px solid transparent; border-radius: 10px;
+      font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+    }
+    .todo-add-btn:hover { opacity: 0.86; }
+    .todo-add-btn:active { transform: scale(0.97); }
+    
+    .todo-list {
+      flex: 1; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 8px;
+      padding-right: 4px;
+      min-height: 0;
+    }
+    .todo-pagination { display: flex; justify-content: center; gap: 6px; margin-top: 8px; flex-shrink: 0; }
+    .todo-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px;
+      background: var(--btn);
+      border: none;
+      border-radius: 10px;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .todo-item.checked {
+      opacity: 0.6;
+      background: transparent;
+    }
+    .todo-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .todo-item.checked .todo-text {
+      text-decoration: line-through;
+    }
+    .todo-checkbox {
+      width: 18px; height: 18px; cursor: pointer;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    .todo-text {
+      flex: 1; font-size: 0.9rem; word-break: break-word;
+    }
+    .todo-del-btn {
+      margin-left: auto;
+      background: transparent; border: none; color: var(--muted);
+      cursor: pointer; font-size: 0.95rem; line-height: 1;
+      width: 28px; height: 28px; border-radius: 7px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background 0.15s, color 0.15s;
+    }
+    .todo-del-btn:hover { color: #e05a4e; background: rgba(224, 90, 78, 0.08); }
+
+    /* settings overlay */
+    .settings-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      z-index: 100; overflow: hidden; padding: clamp(12px, 3vw, 24px); padding-bottom: 0;
+      display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+      animation: fadeUp 0.16s ease;
+    }
+    .settings-overlay.hidden { display: none !important; }
+    .settings-header {
+      width: min(360px, 100%); display: flex; align-items: center; justify-content: space-between;
+      margin: 0 auto 10px; padding: 8px 0 6px;
+      flex-shrink: 0;
+    }
+    .settings-title { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+    .close-settings-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--btn);
+      color: var(--text); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; overflow-x: auto;
+    }
+    .settings-scroll-area {
+      flex: 1; min-height: 0; overflow-y: auto;
+      width: min(360px, 100%); margin: 0 auto;
+      padding-bottom: clamp(12px, 3vw, 24px);
+    }
+    .settings-content {
+      width: 100%;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 20px; padding: 18px 16px; display: flex; flex-direction: column; gap: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+
+    @media (max-width: 560px), (max-height: 760px) {
+      .settings-overlay {
+        padding: 10px;
+        padding-bottom: 0;
+      }
+      .settings-header {
+        /* width: 100%; removed */
+        margin-bottom: 10px;
+      }
+      .settings-scroll-area {
+        /* width: 100%; removed */
+        padding-bottom: 10px;
+      }
+      .settings-content {
+        /* width: 100%; removed */
+        border-radius: 16px;
+        padding: 18px 16px;
+      }
+    }
+
+    .s-section { display: flex; flex-direction: column; gap: 10px; }
+    .s-label {
+      font-size: 0.62rem; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .preset-inputs { display: flex; gap: 8px; }
+    .p-input {
+      flex: 1; width: 0; padding: 10px 8px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--btn);
+      color: var(--text); font-size: 0.75rem; text-align: center;
+      font-family: inherit; transition: border-color 0.15s, background 0.15s;
+    }
+    .p-input::placeholder { color: var(--muted); opacity: 0.6; }
+    .p-input:focus { outline: none; border-color: var(--text); background: var(--bg); }
+
+    /* style picker */
+    .style-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .style-opt { cursor: pointer; }
+    .style-opt input { display: none; }
+    .style-thumb {
+      width: 100%; aspect-ratio: 5/3; border-radius: 12px;
+      border: 1.5px solid var(--border); background: var(--btn);
+      display: flex; align-items: center; justify-content: center; overflow-x: auto;
+      overflow: hidden; transition: border-color 0.15s;
+    }
+    .style-opt input:checked + .style-thumb { border-color: var(--accent); }
+    .style-name {
+      font-size: 0.62rem; color: var(--muted);
+      text-align: center; margin-top: 5px; letter-spacing: 0.06em;
+    }
+
+    /* color picker */
+    .color-row { display: flex; gap: 7px; }
+    .color-opt { flex: 1; cursor: pointer; }
+    .color-opt input { display: none; }
+    .color-swatch {
+      width: 100%; height: 30px; border-radius: 7px;
+      border: 1.5px solid transparent;
+      transition: border-color 0.15s;
+    }
+    .color-opt input:checked + .color-swatch { border-color: var(--text); }
+    .color-name {
+      font-size: 0.58rem; color: var(--muted);
+      text-align: center; margin-top: 4px;
+    }
+
+    .hidden { display: none !important; }
+
+    @keyframes blink {
+      0%,100%{opacity:1} 50%{opacity:0.15}
+    }
+    .done { animation: blink 0.5s ease 4; }
+
+    /* stats specific */
+    body[data-mode="stats"] .timer-wrap,
+    body[data-mode="stats"] .preset-container,
+    body[data-mode="stats"] .controls,
+    body[data-mode="stats"] .tracker-records,
+    body[data-mode="stats"] .tracker-memo-input,
+    body[data-mode="stats"] .pagination { display: none !important; }
+
+    .stats-container { display: flex; flex-direction: column; gap: 16px; width: 100%; animation: fadeUp 0.15s ease; padding-top: 8px;}
+    .stats-header { display: flex; justify-content: space-between; align-items: flex-end; }
+    .stats-title { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+    .stats-total { font-size: 0.72rem; color: var(--accent); font-weight: 500; }
+    
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      width: 100%;
+    }
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: 5px;
+      background: var(--track);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.1s;
+    }
+    .heatmap-cell:hover { transform: scale(1.1); box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }
+    .heatmap-cell[data-level]:not([data-level="0"])::after {
+      content: ''; position: absolute; inset: 0; background: var(--accent);
+    }
+    .heatmap-cell[data-level="1"]::after { opacity: 0.35; }
+    .heatmap-cell[data-level="2"]::after { opacity: 0.6; }
+    .heatmap-cell[data-level="3"]::after { opacity: 0.85; }
+    .heatmap-cell[data-level="4"]::after { opacity: 1; }
+    .heatmap-info { font-size: 0.7rem; text-align: center; color: var(--muted); margin-top: -4px;}
+
+    /* tracker specific */
+    body[data-mode="tracker"] .timer-wrap { height: 100px; }
+    body[data-mode="tracker"] canvas,
+    body[data-mode="tracker"] .dial-svg,
+    body[data-mode="tracker"] #handle-svg { display: none !important; }
+    body[data-mode="tracker"] .time-display { font-size: 4.2rem; transition: font-size 0.3s ease; }
+
+    .tracker-records {
+      width: 100%; margin-top: 4px; padding-top: 18px;
+      border-top: 1px dashed var(--border);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .record-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--btn); padding: 10px 14px;
+      border-radius: 10px; font-size: 0.75rem;
+    }
+    .r-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .r-info-top { display: flex; align-items: baseline; gap: 10px; }
+    .r-time { font-family: 'Outfit', sans-serif; font-size: 1.05rem; font-weight: 600; color: var(--text); }
+    .r-date { color: var(--muted); letter-spacing: 0.02em; font-size: 0.7rem; }
+    .r-memo { font-size: 0.72rem; color: var(--inactive); line-height: 1.3; margin-top: 2px; cursor: text; padding: 2px 4px; margin-left: -4px; border-radius: 4px; transition: background 0.15s; word-break: break-all; }
+    .r-memo:hover { background: var(--bg); }
+    .r-memo:empty::before { content: '메모 추가...'; color: var(--muted); opacity: 0.5; font-style: italic; }
+    .r-memo:focus { outline: 1px solid var(--accent); background: var(--bg); }
+    .del-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 0.95rem; line-height: 1; width: 28px; height: 28px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s, color 0.15s; margin-left: 8px; }
+    .del-btn:hover { color: #e05a4e; background: rgba(224, 90, 78, 0.08); }
+
+    .tracker-memo-input {
+      width: 100%; padding: 10px; border-radius: 10px; border: 1px dashed var(--border); 
+      background: var(--btn); color: var(--text); font-family: inherit; font-size: 0.75rem;
+      margin-top: -12px; margin-bottom: 8px; transition: background 0.15s, border-color 0.15s;
+    }
+    .tracker-memo-input::placeholder { color: var(--muted); opacity: 0.6; }
+    .tracker-memo-input:focus { outline: none; border-style: solid; border-color: var(--text); background: var(--bg); }
+
+    .pagination { display: flex; justify-content: center; overflow-x: auto; gap: 6px; margin-top: 4px; }
+    .page-btn {
+      width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--btn); color: var(--text); font-size: 0.7rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; overflow-x: auto; transition: background 0.15s;
+    }
+    .page-btn:hover { background: var(--btn-hover); }
+    .page-btn.active { background: var(--text); color: var(--bg); border-color: transparent; }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 1; text-shadow: none; }
+      50% { opacity: 0.35; }
+    }
+    .breathe { animation: breathe 2.5s infinite ease-in-out; }
+
+    .s-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    .s-group:last-child { margin-bottom: 0; }
+    .section-title {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.15em;
+      color: var(--text); border-bottom: 1px solid var(--border);
+      padding-bottom: 6px; margin-bottom: 2px; text-transform: uppercase;
+    }
+    .cb-label {
+      display: flex; align-items: center; gap: 8px; font-size: 0.75rem;
+      color: var(--text); cursor: pointer; font-weight: 500;
+    }
+    .cb-label input { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+  </style>
+</head>
+<body data-theme="light" data-light-variant="cool" data-dark-variant="cool" data-accent="periwinkle">
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="topbar-right">
+      <button class="icon-btn" id="mini-mode-btn" title="Mini Mode">🗗</button>
+      <button class="icon-btn" id="always-on-btn" title="Always On">📌</button>
+      <button class="icon-btn" id="theme-btn">🌙</button>
+      <button class="icon-btn" id="settings-btn">⚙️</button>
+    </div>
+  </div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tab-pomodoro">Pomodoro</button>
+    <button class="mode-tab" id="tab-tracker">Time Tracker</button>
+    <button class="mode-tab" id="tab-stats">Stats</button>
+  </div>
+
+  <div class="card">
+    <div class="stats-container hidden" id="stats-container">
+      <div class="stats-header" style="justify-content: center; overflow-x: auto; align-items: center; gap: 12px; margin-bottom: 4px;">
+        <button class="icon-btn" id="prev-month-btn">◀</button>
+        <div class="stats-title" id="stats-month-title" style="font-size:1rem;">2026년 3월</div>
+        <button class="icon-btn" id="next-month-btn">▶</button>
+      </div>
+      <div class="stats-total" id="stats-total" style="text-align: right; margin-bottom: 8px;">총 0시간</div>
+      <div class="heatmap-grid" id="heatmap-grid"></div>
+      <div class="heatmap-info" style="margin-top: 8px;">클릭하여 수정</div>
+    </div>
+
+    <div class="timer-wrap" id="dial-area">
+      <!-- style 1: arc -->
+      <canvas id="c1" width="220" height="220"></canvas>
+      <!-- style 2: dot dial -->
+      <svg id="s2" class="dial-svg hidden" viewBox="0 0 220 220"></svg>
+      <!-- drag handle -->
+      <svg id="handle-svg" viewBox="0 0 220 220">
+        <circle class="drag-dot" id="drag-dot" cx="206" cy="110" r="5.5"/>
+      </svg>
+      <span class="time-display" id="time-display">25:00</span>
+    </div>
+
+    <div class="preset-container" id="preset-container"></div>
+    <input type="text" id="tracker-memo" class="tracker-memo-input hidden" placeholder="할 일을 입력하세요...">
+
+    <div class="controls">
+      <button class="btn primary" id="start-btn">Start</button>
+      <button class="btn hidden" id="save-btn">Save</button>
+      <button class="btn" id="reset-btn">Reset</button>
+    </div>
+
+    <div class="tracker-records hidden" id="tracker-records"></div>
+    <div class="pagination hidden" id="pagination"></div>
+  </div>
+
+  <div class="settings-overlay hidden" id="settings">
+    <div class="settings-header">
+      <div class="settings-title">Settings</div>
+      <button class="close-settings-btn" id="close-settings-btn">✕</button>
+    </div>
+    
+    <div class="settings-scroll-area">
+    <div class="settings-content">
+      <div class="s-group">
+        <div class="section-title">Pomodoro</div>
+      <div class="s-section">
+        <div class="s-label">Presets (Min)</div>
+        <div class="preset-inputs">
+          <input type="number" id="pset1" placeholder="분" class="p-input" min="1" max="60">
+          <input type="number" id="pset2" placeholder="분" class="p-input" min="1" max="60">
+          <input type="number" id="pset3" placeholder="분" class="p-input" min="1" max="60">
+        </div>
+      </div>
+
+      <div class="s-section">
+        <div class="s-label">Timer Style</div>
+        <div class="style-row">
+          <label class="style-opt">
+            <input type="radio" name="style" value="1" checked>
+            <div class="style-thumb">
+              <svg width="68" height="68" viewBox="0 0 68 68">
+                <circle cx="34" cy="34" r="26" fill="none" stroke-width="7" id="pv-arc-t"/>
+                <circle cx="34" cy="34" r="26" fill="none" stroke-width="7"
+                  stroke-linecap="round"
+                  stroke-dasharray="163.4" stroke-dashoffset="41"
+                  transform="rotate(-90 34 34)" id="pv-arc-f"/>
+              </svg>
+            </div>
+            <div class="style-name">Arc</div>
+          </label>
+          <label class="style-opt">
+            <input type="radio" name="style" value="2">
+            <div class="style-thumb">
+              <svg width="68" height="68" viewBox="0 0 68 68" id="pv-dial"></svg>
+            </div>
+            <div class="style-name">Dial</div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="s-group">
+      <div class="section-title">General</div>
+      <div class="s-section">
+        <div class="s-label">Light Background</div>
+        <div class="color-row">
+          <label class="color-opt">
+            <input type="radio" name="v-light" value="cool" checked>
+            <div class="color-swatch" style="background:#edf1f6; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1)"></div>
+            <div class="color-name">Cool</div>
+          </label>
+          <label class="color-opt">
+            <input type="radio" name="v-light" value="warm">
+            <div class="color-swatch" style="background:#f9f8f6; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1)"></div>
+            <div class="color-name">Warm</div>
+          </label>
+          <label class="color-opt">
+            <input type="radio" name="v-light" value="neutral">
+            <div class="color-swatch" style="background:#f2f2f2; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1)"></div>
+            <div class="color-name">Neutral</div>
+          </label>
+        </div>
+      </div>
+      <div class="s-section">
+        <div class="s-label">Dark Background</div>
+        <div class="color-row">
+          <label class="color-opt">
+            <input type="radio" name="v-dark" value="cool" checked>
+            <div class="color-swatch" style="background:#0f1217; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1)"></div>
+            <div class="color-name">Cool</div>
+          </label>
+          <label class="color-opt">
+            <input type="radio" name="v-dark" value="warm">
+            <div class="color-swatch" style="background:#1c1a19; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1)"></div>
+            <div class="color-name">Warm</div>
+          </label>
+          <label class="color-opt">
+            <input type="radio" name="v-dark" value="neutral">
+            <div class="color-swatch" style="background:#141414; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1)"></div>
+            <div class="color-name">Neutral</div>
+          </label>
+        </div>
+      </div>
+      <div class="s-section">
+        <div class="s-label">Accent Color</div>
+        <div class="color-row">
+          <label class="color-opt">
+            <input type="radio" name="accent" value="tomato">
+            <div class="color-swatch" style="background:#e05a4e"></div>
+            <div class="color-name">Tomato</div>
+          </label>
+          <label class="color-opt">
+            <input type="radio" name="accent" value="periwinkle" checked>
+            <div class="color-swatch" style="background:#6c7fe8"></div>
+            <div class="color-name">Periwinkle</div>
+          </label>
+          <label class="color-opt">
+            <input type="radio" name="accent" value="sage">
+            <div class="color-swatch" style="background:#5ba87a"></div>
+            <div class="color-name">Sage</div>
+          </label>
+          <label class="color-opt">
+            <input type="radio" name="accent" value="amber">
+            <div class="color-swatch" style="background:#e8933e"></div>
+            <div class="color-name">Amber</div>
+          </label>
+          <label class="color-opt">
+            <input type="radio" name="accent" value="violet">
+            <div class="color-swatch" style="background:#7a5ce6"></div>
+            <div class="color-name">Violet</div>
+          </label>
+        </div>
+      </div>
+      <div class="s-section">
+        <label class="cb-label">
+          <input type="checkbox" id="idle-breathe-cb">
+          대기/휴식 중 숨쉬기 효과
+        </label>
+      </div>
+    </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<div class="todo-panel" id="todo-panel">
+    <div class="todo-header">
+      <div class="todo-title">To-Do</div>
+      <button class="todo-clear-btn" id="todo-clear-btn">일괄 삭제</button>
+    </div>
+    <form class="todo-input-wrap" id="todo-form">
+      <input type="text" class="todo-input" id="todo-input" placeholder="할 일을 입력하세요..." autocomplete="off">
+      <button type="submit" class="todo-add-btn">+</button>
+    </form>
+    <div class="todo-list" id="todo-list"></div>
+    <div class="todo-pagination hidden" id="todo-pagination"></div>
+  </div>
+
+<!-- Mini Mode Overlay UI -->
+<div class="mini-ui hidden" id="mini-ui">
+  <div class="mini-drag-handle"></div>
+  <div class="mini-content">
+    <div class="mini-time" id="mini-time-display">25:00</div>
+    <div class="mini-controls">
+      <button class="mini-btn" id="mini-toggle-btn">▶️</button>
+      <button class="mini-btn" id="mini-reset-btn">↺</button>
+      <button class="mini-btn" id="mini-restore-btn">⛶</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* --- Mini Mode Styles --- */
+  body.mini-mode .app { display: none !important; }
+  body.mini-mode .titlebar { display: none !important; } /*    타  */
+  body.mini-mode {
+    background: var(--bg) !important;
+    min-height: 100vh;
+    padding: 0; margin: 0;
+    overflow: hidden;
+  }
+  
+  .mini-ui {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: var(--bg); /*     ( */
+    color: var(--text); /*     */
+    -webkit-app-region: drag; /* Electron   */
+  }
+  .mini-ui.hidden { display: none !important; }
+
+  .mini-drag-handle { display: none; } /*       */
+
+  .mini-content {
+    flex: 1; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; gap: 12px;
+  }
+  
+  .mini-time {
+    font-family: 'Outfit', sans-serif; font-size: 2.2rem; font-weight: 600;
+    letter-spacing: -0.02em; pointer-events: none;
+    color: var(--accent);
+  }
+  
+  .mini-controls {
+    display: flex; gap: 8px; -webkit-app-region: no-drag; /*  클    */
+  }
+  
+  .mini-btn {
+    width: 28px; height: 28px; border-radius: 6px; border: none;
+    background: var(--btn); color: var(--text); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; overflow-x: auto;
+    transition: background 0.15s; font-size: 0.9rem;
+    border: 1px solid var(--border);
+  }
+  .mini-btn:hover { background: var(--btn-hover); }
+</style>
+
+<script>
+const MAX_MIN = 60;
+let pomoTotal = 25 * 60, pomoCur = 25 * 60, pomoRun = false, pomoTick = null;
+let trckCur = 0, trckRun = false, trckTick = null;
+let mode = 'pomodoro';
+let dragging = false, curStyle = 1;
+
+const $ = id => document.getElementById(id);
+const cv = v => getComputedStyle(document.body).getPropertyValue(v).trim();
+const fmt = s => {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sc = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
+};
+
+const timeEl    = $('time-display');
+const dialArea  = $('dial-area');
+const dragDot   = $('drag-dot');
+const c1        = $('c1');  const ctx1 = c1.getContext('2d');
+const s2        = $('s2');
+const startBtn  = $('start-btn');
+const resetBtn  = $('reset-btn');
+const themeBtn  = $('theme-btn');
+const alwaysOnBtn = $('always-on-btn');
+const settingsBtn = $('settings-btn');
+const settingsEl  = $('settings');
+const alwaysOnKey = 'alwaysOn';
+const presetsKey  = 'pomodoroPresets';
+  const todoKey     = 'todoList';
+  const todoItemsPerPage = 7;
+  let currentTodoPage = 1;
+
+  // To-Do DOM
+  const todoForm = $('todo-form');
+  const todoInput = $('todo-input');
+  const todoListEl = $('todo-list');
+  const todoClearBtn = $("todo-clear-btn");
+
+const memoInput = $('tracker-memo');
+  const breatheCb = $('idle-breathe-cb');
+
+window.useBreathing = localStorage.getItem('idleBreathe') === '1';
+breatheCb.checked = window.useBreathing;
+breatheCb.addEventListener('change', e => {
+  window.useBreathing = e.target.checked;
+  localStorage.setItem('idleBreathe', window.useBreathing ? '1' : '0');
+  updateBreathing();
+});
+
+function updateBreathing() {
+  if (!window.useBreathing) {
+    timeEl.classList.remove('breathe');
+    return;
+  }
+  if (!isRunning()) {
+    timeEl.classList.add('breathe');
+  } else {
+    timeEl.classList.remove('breathe');
+  }
+}
+
+/* presets */
+const presetContainer = $('preset-container');
+const pInputs = [$('pset1'), $('pset2'), $('pset3')];
+
+function renderPresets() {
+  const vals = pInputs.map(i => parseInt(i.value)).filter(v => !isNaN(v) && v > 0);
+  presetContainer.innerHTML = '';
+  if(vals.length === 0) {
+    presetContainer.innerHTML = '<span class="p-empty">No Presets</span>';
+  } else {
+    vals.forEach(m => {
+      const btn = document.createElement('button');
+      btn.className = 'p-btn';
+      btn.textContent = m + 'm';
+      btn.onclick = () => {
+        if(pomoRun) {
+          clearInterval(pomoTick); pomoRun = false;
+          updateButtons();
+        }
+        let cl = Math.min(m, MAX_MIN);
+        pomoTotal = cl * 60; pomoCur = pomoTotal; render();
+      };
+      presetContainer.appendChild(btn);
+    });
+  }
+}
+
+function initPresets() {
+  let saved = ['25', '10', '5'];
+  try {
+    const stored = localStorage.getItem(presetsKey);
+    if(stored) saved = JSON.parse(stored);
+  } catch(e){}
+  pInputs.forEach((inp, i) => {
+    inp.value = saved[i] || '';
+    inp.addEventListener('input', () => {
+      const v = pInputs.map(x => x.value);
+      localStorage.setItem(presetsKey, JSON.stringify(v));
+      renderPresets();
+    });
+  });
+  renderPresets();
+}
+
+function getModeSec() { return mode === 'pomodoro' ? Math.max(0, pomoCur) : trckCur; }
+function isRunning() { return mode === 'pomodoro' ? pomoRun : trckRun; }
+function getRatio() {
+  if (mode === 'pomodoro') return pomoCur / Math.max(MAX_MIN * 60, 1);
+  return (trckCur % (MAX_MIN * 60)) / (MAX_MIN * 60);
+}
+function updateButtons() {
+  const run = isRunning();
+  startBtn.textContent = run ? 'Pause' : 'Start';
+  $('mini-toggle-btn').textContent = run ? '⏸️' : '▶️';
+  if(run) {
+    startBtn.classList.remove('primary'); startBtn.classList.add('danger');
+  } else {
+    startBtn.classList.remove('danger'); startBtn.classList.add('primary');
+  }
+  if (typeof updateBreathing === 'function') updateBreathing();
+}
+
+/* arc */
+function drawArc() {
+  const cx=110,cy=110,r=96,lw=12;
+  ctx1.clearRect(0,0,220,220);
+  ctx1.beginPath();
+  ctx1.arc(cx,cy,r,0,Math.PI*2);
+  ctx1.strokeStyle=cv('--track');
+  ctx1.lineWidth=lw; ctx1.lineCap='butt'; ctx1.stroke();
+
+  const ratio = getRatio();
+  if(ratio<=0 && mode === 'pomodoro') return;
+  if(ratio>0) {
+    ctx1.beginPath();
+    ctx1.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+ratio*Math.PI*2);
+    ctx1.strokeStyle=isRunning() ? cv('--accent') : cv('--inactive');
+    ctx1.lineWidth=lw; ctx1.lineCap='round'; ctx1.stroke();
+  }
+}
+
+/* dial ? 60 ticks with subtle major marks every 5 minutes */
+function drawDial() {
+  s2.innerHTML='';
+  const cx=110,cy=110,r=96;
+  const total=60;
+  const curMin = mode === 'pomodoro' ? (pomoCur/60) : ((trckCur%3600)/60);
+
+  const ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  ring.setAttribute('cx',cx); ring.setAttribute('cy',cy);
+  ring.setAttribute('r',r+4);
+  ring.setAttribute('fill','none');
+  ring.setAttribute('stroke',cv('--border'));
+  ring.setAttribute('stroke-width','1.5');
+  s2.appendChild(ring);
+
+  for(let i=0;i<total;i++){
+    const minVal = i;
+    const angle  = (i/total)*Math.PI*2 - Math.PI/2;
+    const isMajor = i%5===0;
+    const outer = r - 2;
+    const inner = r - (isMajor ? 12 : 5);
+    const x1 = cx+inner*Math.cos(angle);
+    const y1 = cy+inner*Math.sin(angle);
+    const x2 = cx+outer*Math.cos(angle);
+    const y2 = cy+outer*Math.sin(angle);
+    const active = mode === 'pomodoro' ? (minVal < curMin + 0.01) : (minVal <= curMin);
+
+    const tick = document.createElementNS('http://www.w3.org/2000/svg','line');
+    tick.setAttribute('x1',x1.toFixed(2));
+    tick.setAttribute('y1',y1.toFixed(2));
+    tick.setAttribute('x2',x2.toFixed(2));
+    tick.setAttribute('y2',y2.toFixed(2));
+    const activeColor = isRunning() ? cv('--accent') : cv('--inactive');
+    tick.setAttribute('stroke', active ? activeColor : cv('--track'));
+    tick.setAttribute('stroke-width', isMajor ? 3 : 1.5);
+    tick.setAttribute('stroke-linecap','round');
+    s2.appendChild(tick);
+  }
+}
+
+function updateHandle(){
+  dragDot.style.opacity = mode === 'pomodoro' ? '1' : '0';
+  dragDot.style.pointerEvents = mode === 'pomodoro' ? 'auto' : 'none';
+  if(mode !== 'pomodoro') return;
+  const ratio = getRatio();
+  const angle  = ratio*Math.PI*2 - Math.PI/2;
+  dragDot.setAttribute('cx',(110+96*Math.cos(angle)).toFixed(2));
+  dragDot.setAttribute('cy',(110+96*Math.sin(angle)).toFixed(2));
+}
+
+function updatePreviews(){
+  const t=$('pv-arc-t'), f=$('pv-arc-f');
+  if(t){t.setAttribute('stroke',cv('--track'));}
+  if(f){f.setAttribute('stroke',cv('--accent'));}
+
+  const pd=$('pv-dial');
+  if(!pd) return;
+  pd.innerHTML='';
+  const cx=34,cy=34,r=26,total=60;
+  const ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  ring.setAttribute('cx',cx); ring.setAttribute('cy',cy);
+  ring.setAttribute('r',r+2);
+  ring.setAttribute('fill','none');
+  ring.setAttribute('stroke',cv('--border'));
+  ring.setAttribute('stroke-width','1');
+  pd.appendChild(ring);
+  for(let i=0;i<total;i++){
+    const angle=(i/total)*Math.PI*2-Math.PI/2;
+    const isMajor=i%5===0;
+    const outer=r-1;
+    const inner=r-(isMajor?4.5:2);
+    const x1=cx+inner*Math.cos(angle), y1=cy+inner*Math.sin(angle);
+    const x2=cx+outer*Math.cos(angle), y2=cy+outer*Math.sin(angle);
+    const active=i<45;
+    const tick=document.createElementNS('http://www.w3.org/2000/svg','line');
+    tick.setAttribute('x1',x1.toFixed(1)); tick.setAttribute('y1',y1.toFixed(1));
+    tick.setAttribute('x2',x2.toFixed(1)); tick.setAttribute('y2',y2.toFixed(1));
+    tick.setAttribute('stroke', active?cv('--accent'):cv('--track'));
+    tick.setAttribute('stroke-width', isMajor?1.8:1.2);
+    tick.setAttribute('stroke-linecap','round');
+    pd.appendChild(tick);
+  }
+}
+
+function render(){
+  const tStr = fmt(getModeSec());
+  timeEl.textContent = tStr;
+  $('mini-time-display').textContent = tStr; //    
+  updateHandle();
+  curStyle===1 ? drawArc() : drawDial();
+  updatePreviews();
+}
+
+/* drag */
+function getAngle(e){
+  const rect=dialArea.getBoundingClientRect();
+  const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  const ex=e.clientX??e.touches?.[0]?.clientX??0;
+  const ey=e.clientY??e.touches?.[0]?.clientY??0;
+  let a=Math.atan2(ey-cy,ex-cx)*180/Math.PI+90;
+  if(a<0)a+=360; return a;
+}
+dragDot.addEventListener('mousedown', e=>{if(!pomoRun && mode==='pomodoro'){dragging=true;e.preventDefault();}});
+dragDot.addEventListener('touchstart',()=>{if(!pomoRun && mode==='pomodoro')dragging=true;},{passive:true});
+function onMove(e){
+  if(!dragging || mode!=='pomodoro') return;
+  let m=Math.round((getAngle(e)/360)*MAX_MIN);
+  if(m===0)m=MAX_MIN;
+  pomoTotal=m*60; pomoCur=pomoTotal; render();
+}
+document.addEventListener('mousemove',onMove);
+document.addEventListener('touchmove',onMove,{passive:true});
+document.addEventListener('mouseup',()=>dragging=false);
+document.addEventListener('touchend',()=>dragging=false);
+
+/* timer */
+startBtn.addEventListener('click',()=>{
+  if (mode === 'pomodoro') {
+    if(pomoRun){
+      clearInterval(pomoTick); pomoRun=false;
+      updateButtons(); render();
+    } else {
+      if(pomoTotal<=0) return;
+      if(pomoCur<=0) pomoCur=pomoTotal;
+      pomoRun=true; updateButtons(); render();
+      pomoTick=setInterval(()=>{
+        pomoCur--; 
+        if(mode==='pomodoro') render();
+        if(pomoCur<=0){
+          clearInterval(pomoTick); pomoRun=false;
+          if (mode==='pomodoro') {
+            addHeatmapTime(pomoTotal); //  
+            updateButtons();
+            timeEl.classList.add('done');
+            setTimeout(()=>timeEl.classList.remove('done'),2500);
+          }
+        }
+      },1000);
+    }
+  } else {
+    if(trckRun){
+      clearInterval(trckTick); trckRun=false;
+      updateButtons(); render();
+    } else {
+      trckRun=true; updateButtons(); render();
+      trckTick=setInterval(()=>{
+        trckCur++; 
+        if(mode==='tracker') render();
+      },1000);
+    }
+  }
+});
+
+resetBtn.addEventListener('click',()=>{
+  if(mode === 'pomodoro') {
+    clearInterval(pomoTick); pomoRun=false;
+    pomoCur=0; pomoTotal=0;
+  } else {
+    clearInterval(trckTick); trckRun=false;
+    trckCur=0;
+  }
+  updateButtons();
+  render();
+});
+
+const saveBtn = $('save-btn');
+const trackerRecords = $('tracker-records');
+const trackerRecordsKey = 'trackerRecordsData';
+
+function loadTrackerRecords() {
+  try { return JSON.parse(localStorage.getItem(trackerRecordsKey)) || []; } catch(e){ return []; }
+}
+function saveTrackerData(data) {
+  localStorage.setItem(trackerRecordsKey, JSON.stringify(data));
+}
+const itemsPerPage = 5;
+let currentTrackerPage = 1;
+
+function renderTrackerRecords() {
+  const data = loadTrackerRecords();
+  trackerRecords.innerHTML = '';
+  const pagination = $('pagination');
+  pagination.innerHTML = '';
+  
+  if (data.length === 0) {
+    trackerRecords.innerHTML = '<div style="text-align:center; font-size:0.75rem; color:var(--muted); padding:10px;">기록이 없습니다</div>';
+    pagination.classList.add('hidden');
+    return;
+  }
+
+  const totalPages = Math.ceil(data.length / itemsPerPage);
+  if (currentTrackerPage > totalPages) currentTrackerPage = totalPages;
+  if (currentTrackerPage < 1) currentTrackerPage = 1;
+
+  const startIdx = (currentTrackerPage - 1) * itemsPerPage;
+  const pageData = data.slice(startIdx, startIdx + itemsPerPage);
+
+  pageData.forEach((item, loopIdx) => {
+    const dataIdx = startIdx + loopIdx; // actual index in data array
+    const div = document.createElement('div');
+    div.className = 'record-item';
+    div.innerHTML = `
+      <div class="r-info">
+        <div class="r-info-top">
+          <span class="r-time">${fmt(item.duration)}</span>
+          <span class="r-date">${item.date}</span>
+        </div>
+        <div class="r-memo" contenteditable="true" spellcheck="false" data-idx="${dataIdx}">${item.memo || ''}</div>
+      </div>
+      <button class="del-btn" data-idx="${dataIdx}">✕</button>
+    `;
+    trackerRecords.appendChild(div);
+  });
+
+  // Edit Memo
+  document.querySelectorAll('.r-memo').forEach(el => {
+    el.addEventListener('blur', (e) => {
+      const idx = parseInt(e.target.getAttribute('data-idx'));
+      const newText = e.target.textContent.trim();
+      data[idx].memo = newText;
+      saveTrackerData(data);
+    });
+    el.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter') {
+        e.preventDefault();
+        e.target.blur();
+      }
+    });
+  });
+
+  // Delete
+  document.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const i = parseInt(e.target.getAttribute('data-idx'));
+      data.splice(i, 1);
+      saveTrackerData(data);
+      renderTrackerRecords();
+    });
+  });
+
+  // Pagination UI
+  if (totalPages > 1) {
+    pagination.classList.remove('hidden');
+    for (let i = 1; i <= totalPages; i++) {
+      const btn = document.createElement('button');
+      btn.className = `page-btn ${i === currentTrackerPage ? 'active' : ''}`;
+      btn.textContent = i;
+      btn.onclick = () => {
+        currentTrackerPage = i;
+        renderTrackerRecords();
+      };
+      pagination.appendChild(btn);
+    }
+  } else {
+    pagination.classList.add('hidden');
+  }
+}
+
+saveBtn.addEventListener('click', () => {
+  if (trckCur === 0) return;
+  addHeatmapTime(trckCur); //  
+  const data = loadTrackerRecords();
+  const now = new Date();
+  const dateStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  data.unshift({ date: dateStr, duration: trckCur, memo: memoInput.value.trim() });
+  saveTrackerData(data);
+  renderTrackerRecords();
+  memoInput.value = '';
+  
+  clearInterval(trckTick); trckRun = false; trckCur = 0;
+  updateButtons(); render();
+});
+
+const tabPomo = $('tab-pomodoro');
+const tabTrck = $('tab-tracker');
+const tabStats = $('tab-stats');
+
+const heatmapKey = 'pomodoroHeatmap';
+let heatmapData = getHeatmapData();
+
+function getHeatmapData() {
+  try { return JSON.parse(localStorage.getItem(heatmapKey)) || {}; }
+  catch(e) { return {}; }
+}
+function saveHeatmapData(data) {
+  localStorage.setItem(heatmapKey, JSON.stringify(data));
+}
+function addHeatmapTime(seconds) {
+  if (seconds < 60) return; // 1    X
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  heatmapData[dateStr] = (heatmapData[dateStr] || 0) + seconds;
+  saveHeatmapData(heatmapData);
+  if (mode === 'stats') renderStats();
+}
+
+let statsDate = new Date();
+statsDate.setDate(1); //       
+
+function renderStats() {
+  const grid = $('heatmap-grid');
+  grid.innerHTML = '';
+  
+  const year = statsDate.getFullYear();
+  const month = statsDate.getMonth();
+  
+  $('stats-month-title').textContent = `${year}년 ${month + 1}월`;
+  
+  let totalSec = 0;
+  
+  // 첫   (0: 1: ... 6:
+  const firstDay = new Date(year, month, 1).getDay();
+  //    
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  
+  //  칸  (  
+  for (let i = 0; i < firstDay; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'heatmap-cell';
+    empty.style.background = 'transparent';
+    empty.style.cursor = 'default';
+    empty.style.boxShadow = 'none';
+    empty.style.pointerEvents = 'none';
+    grid.appendChild(empty);
+  }
+
+  for (let i = 1; i <= daysInMonth; i++) {
+    const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+    const sec = heatmapData[dStr] || 0;
+    totalSec += sec;
+    
+    const cell = document.createElement('div');
+    cell.className = 'heatmap-cell';
+    
+    let lv = 0;
+    if (sec > 0) {
+      if (sec < 30 * 60) lv = 1; // 30 
+      else if (sec < 2 * 3600) lv = 2; // 2 
+      else if (sec < 4 * 3600) lv = 3; // 4 
+      else lv = 4; // 4 
+    }
+    cell.setAttribute('data-level', lv);
+    cell.title = `${month+1}월 ${i}일: ${Math.round(sec/60)}분`;
+    
+    //   표    z-index  
+    // cell.innerHTML = `<span style="position:relative; z-index:2; font-size:0.5rem; color:${sec>0?'#fff':'var(--muted)'}; height:100%; display:flex; align-items:center; justify-content:center;">${i}</span>`;
+    
+    cell.onclick = () => {
+      const currentMin = Math.round(sec/60);
+      const pm = prompt(`${month+1}월 ${i}일의 수정할 시간을 입력하세요 (단위: 분)`, currentMin);
+      if (pm !== null) {
+        const newMin = parseInt(pm, 10);
+        if (!isNaN(newMin) && newMin >= 0) {
+          if (newMin === 0) delete heatmapData[dStr];
+          else heatmapData[dStr] = newMin * 60;
+          saveHeatmapData(heatmapData);
+          renderStats();
+        }
+      }
+    };
+    grid.appendChild(cell);
+  }
+  
+  $('stats-total').textContent = `총 ${Math.round(totalSec/3600*10)/10} 시간`;}
+
+$('prev-month-btn').addEventListener('click', () => {
+  statsDate.setMonth(statsDate.getMonth() - 1);
+  renderStats();
+});
+
+$('next-month-btn').addEventListener('click', () => {
+  statsDate.setMonth(statsDate.getMonth() + 1);
+  renderStats();
+});
+
+function setMode(m) {
+  mode = m;
+  document.body.setAttribute('data-mode', m);
+  tabPomo.classList.toggle('active', mode === 'pomodoro');
+  tabTrck.classList.toggle('active', mode === 'tracker');
+  tabStats.classList.toggle('active', mode === 'stats');
+  
+  $('stats-container').classList.add('hidden');
+  
+  if (mode === 'pomodoro') {
+    presetContainer.style.display = 'flex';
+    saveBtn.classList.add('hidden');
+    trackerRecords.classList.add('hidden');
+    memoInput.classList.add('hidden');
+  } else if (mode === 'tracker') {
+    presetContainer.style.display = 'none';
+    saveBtn.classList.remove('hidden');
+    trackerRecords.classList.remove('hidden');
+    memoInput.classList.remove('hidden');
+    renderTrackerRecords();
+  } else if (mode === 'stats') {
+    presetContainer.style.display = 'none';
+    $('stats-container').classList.remove('hidden');
+    renderStats();
+  }
+  updateButtons();
+  if (mode !== 'stats') render();
+}
+tabPomo.addEventListener('click', () => setMode('pomodoro'));
+tabTrck.addEventListener('click', () => setMode('tracker'));
+tabStats.addEventListener('click', () => setMode('stats'));
+
+const closeSettingsBtn = $('close-settings-btn');
+settingsBtn.addEventListener('click', () => {
+  settingsEl.scrollTop = 0;
+  settingsEl.classList.remove('hidden');
+});
+closeSettingsBtn.addEventListener('click', () => {
+  settingsEl.classList.add('hidden');
+});
+settingsEl.addEventListener('click', (e) => {
+  if (e.target === settingsEl) {
+    settingsEl.classList.add('hidden');
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !settingsEl.classList.contains('hidden')) {
+    settingsEl.classList.add('hidden');
+  }
+});
+
+document.querySelectorAll('input[name="style"]').forEach(r=>{
+  r.addEventListener('change',()=>{
+    curStyle=+r.value;
+    c1.classList.toggle('hidden',curStyle!==1);
+    s2.classList.toggle('hidden',curStyle!==2);
+    render();
+  });
+});
+
+document.querySelectorAll('input[name="accent"]').forEach(r=>{
+  r.addEventListener('change',()=>{
+    document.body.setAttribute('data-accent',r.value);
+    requestAnimationFrame(render);
+  });
+});
+
+function initTheme() {
+  const savedTheme = localStorage.getItem('pomodoroTheme') || 'light';
+  document.body.setAttribute('data-theme', savedTheme);
+  themeBtn.textContent = savedTheme === 'light' ? '☀️' : '🌙';
+}
+
+themeBtn.addEventListener('click',()=>{
+  const light=document.body.getAttribute('data-theme')==='light';
+  const newTheme = light ? 'dark' : 'light';
+  document.body.setAttribute('data-theme', newTheme);
+  themeBtn.textContent = newTheme === 'light' ? '☀️' : '🌙';
+  localStorage.setItem('pomodoroTheme', newTheme);
+  requestAnimationFrame(render);
+});
+
+function initVariants() {
+  const lv = localStorage.getItem('lightVariant') || 'cool';
+  const dv = localStorage.getItem('darkVariant') || 'cool';
+  document.body.setAttribute('data-light-variant', lv);
+  document.body.setAttribute('data-dark-variant', dv);
+
+  const lRadio = document.querySelector(`input[name="v-light"][value="${lv}"]`);
+  if(lRadio) lRadio.checked = true;
+  const dRadio = document.querySelector(`input[name="v-dark"][value="${dv}"]`);
+  if(dRadio) dRadio.checked = true;
+}
+
+document.querySelectorAll('input[name="v-light"]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.body.setAttribute('data-light-variant', r.value);
+    localStorage.setItem('lightVariant', r.value);
+    requestAnimationFrame(render);
+  });
+});
+
+document.querySelectorAll('input[name="v-dark"]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.body.setAttribute('data-dark-variant', r.value);
+    localStorage.setItem('darkVariant', r.value);
+    requestAnimationFrame(render);
+  });
+});
+
+function getAlwaysOnBridge(){
+  if(window.electronAPI && typeof window.electronAPI.setAlwaysOnTop==='function'){
+    return {
+      set: enabled => window.electronAPI.setAlwaysOnTop(enabled),
+      get: typeof window.electronAPI.isAlwaysOnTop==='function'
+        ? () => window.electronAPI.isAlwaysOnTop()
+        : null
+    };
+  }
+  if(window.__TAURI__?.core?.invoke){
+    return {
+      set: enabled => window.__TAURI__.core.invoke('set_always_on_top',{enabled}),
+      get: () => window.__TAURI__.core.invoke('get_always_on_top')
+    };
+  }
+  if(window.chrome?.webview?.postMessage){
+    return {
+      set: enabled => window.chrome.webview.postMessage({type:'alwaysOnTop',enabled}),
+      get: null
+    };
+  }
+  return null;
+}
+
+const alwaysOnBridge = getAlwaysOnBridge();
+
+function paintAlwaysOnState(enabled, supported){
+  alwaysOnBtn.classList.toggle('on', enabled && supported);
+  alwaysOnBtn.classList.toggle('unsupported', !supported);
+  alwaysOnBtn.title = supported
+    ? (enabled ? 'Always On: On' : 'Always On: Off')
+    : 'Always On: Host integration required';
+}
+
+async function initAlwaysOn(){
+  let enabled = localStorage.getItem(alwaysOnKey)==='1';
+  const supported = Boolean(alwaysOnBridge);
+
+  if(supported && alwaysOnBridge.get){
+    try {
+      enabled = Boolean(await alwaysOnBridge.get());
+    } catch (err) {
+      console.warn('Failed to read always-on-top state from host app.', err);
+    }
+  }
+
+  if(supported){
+    try {
+      await alwaysOnBridge.set(enabled);
+    } catch (err) {
+      console.warn('Failed to apply always-on-top state to host app.', err);
+      enabled = false;
+    }
+  }
+
+  paintAlwaysOnState(enabled, supported);
+  localStorage.setItem(alwaysOnKey, enabled ? '1' : '0');
+}
+
+alwaysOnBtn.addEventListener('click', async ()=>{
+  if(!alwaysOnBridge){
+    paintAlwaysOnState(false, false);
+    return;
+  }
+
+  const next = !alwaysOnBtn.classList.contains('on');
+  try {
+    await alwaysOnBridge.set(next);
+    paintAlwaysOnState(next, true);
+    localStorage.setItem(alwaysOnKey, next ? '1' : '0');
+  } catch (err) {
+    console.warn('Always-on-top toggle failed in host app.', err);
+    paintAlwaysOnState(false, true);
+    localStorage.setItem(alwaysOnKey, '0');
+  }
+});
+
+/* --- Mini Mode Logic --- */
+const miniModeBtn = $('mini-mode-btn');
+const miniUi = $('mini-ui');
+
+//  - Electron   창 크    
+function setAppWindowSize(isMini) {
+  if (window.electronAPI && typeof window.electronAPI.resizeWindow === 'function') {
+    //    30~40px)   110px   ( 
+    window.electronAPI.resizeWindow(isMini ? { width: 250, height: 110 } : { width: 380, height: 600 });
+  }
+}
+
+let wasAlwaysOnBeforeMini = false; //      
+
+function enterMiniMode() {
+  document.body.classList.add('mini-mode');
+  miniUi.classList.remove('hidden');
+  setAppWindowSize(true);
+  
+  //     Always On Top  
+  if (alwaysOnBridge) {
+    wasAlwaysOnBeforeMini = alwaysOnBtn.classList.contains('on');
+    alwaysOnBridge.set(true);
+    paintAlwaysOnState(true, true);
+  }
+}
+
+function exitMiniMode() {
+  document.body.classList.remove('mini-mode');
+  miniUi.classList.add('hidden');
+  setAppWindowSize(false);
+  
+  //      Always On Top  
+  if (alwaysOnBridge) {
+    alwaysOnBridge.set(wasAlwaysOnBeforeMini);
+    paintAlwaysOnState(wasAlwaysOnBeforeMini, true);
+  }
+}
+
+miniModeBtn.addEventListener('click', enterMiniMode);
+$('mini-restore-btn').addEventListener('click', exitMiniMode);
+
+//     (Start  클   
+$('mini-toggle-btn').addEventListener('click', () => startBtn.click());
+$('mini-reset-btn').addEventListener('click', () => resetBtn.click());
+
+//   처
+miniUi.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  // TODO: Electron Native Context Menu 호   
+  //     
+  exitMiniMode();
+});
+
+initTheme();
+initVariants();
+initPresets();
+initAlwaysOn();
+setMode('pomodoro');
+  
+  // ======== To-Do Logic ========
+  let todos = [];
+  try {
+    const storedTodos = localStorage.getItem(todoKey);
+    if(storedTodos) todos = JSON.parse(storedTodos);
+  } catch(e){}
+
+  function renderTodos() {
+    todoListEl.innerHTML = '';
+    const todoPagination = $('todo-pagination');
+    todoPagination.innerHTML = '';
+    // Auto-sort: unchecked first, checked at bottom
+    let sorted = [...todos].sort((a,b) => {
+      if(a.checked === b.checked) return a.id - b.id;
+      return a.checked ? 1 : -1;
+    });
+
+    const totalPages = Math.ceil(sorted.length / todoItemsPerPage) || 1;
+    if (currentTodoPage > totalPages) currentTodoPage = totalPages;
+    if (currentTodoPage < 1) currentTodoPage = 1;
+    const startIdx = (currentTodoPage - 1) * todoItemsPerPage;
+    const pageItems = sorted.slice(startIdx, startIdx + todoItemsPerPage);
+
+    pageItems.forEach(({id, text, checked}) => {
+      const li = document.createElement('div');
+      li.className = 'todo-item' + (checked ? ' checked' : '');
+      
+      const mainCol = document.createElement('div');
+      mainCol.className = 'todo-main';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'todo-checkbox';
+      cb.checked = checked;
+      cb.addEventListener('change', () => {
+        const item = todos.find(t => t.id === id);
+        if(item) {
+          item.checked = cb.checked;
+          if(cb.checked) {
+              li.classList.add('checked');
+          } else {
+              li.classList.remove('checked');
+          }
+          saveTodos();
+          renderTodos();
+        }
+      });
+
+      const span = document.createElement('span');
+      span.className = 'todo-text';
+      span.textContent = text;
+      
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'todo-del-btn';
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', () => {
+        todos = todos.filter(t => t.id !== id);
+        saveTodos();
+        renderTodos();
+      });
+
+      mainCol.appendChild(cb);
+      mainCol.appendChild(span);
+      li.appendChild(mainCol);
+      li.appendChild(delBtn);
+      todoListEl.appendChild(li);
+    });
+
+    if (totalPages > 1) {
+      todoPagination.classList.remove('hidden');
+      for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement('button');
+        btn.className = `page-btn ${i === currentTodoPage ? 'active' : ''}`;
+        btn.textContent = i;
+        btn.onclick = () => { currentTodoPage = i; renderTodos(); };
+        todoPagination.appendChild(btn);
+      }
+    } else {
+      todoPagination.classList.add('hidden');
+    }
+  }
+
+  function saveTodos() {
+    localStorage.setItem(todoKey, JSON.stringify(todos));
+  }
+
+  todoForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = todoInput.value.trim();
+    if(!text) return;
+    todos.push({ id: Date.now(), text, checked: false });
+    todoInput.value = '';
+    saveTodos();
+    renderTodos();
+  });
+
+  todoClearBtn.addEventListener('click', () => {
+    todos = todos.filter(t => !t.checked); //   "    
+    saveTodos();
+    renderTodos();
+  });
+  
+  renderTodos();
+
+  function setWindowConstraints(isSplit) {
+    if (window.electronAPI && window.electronAPI.setWindowConstraints) {
+      if (isSplit) {
+        window.electronAPI.setWindowConstraints({ minWidth: 380, minHeight: 400, maxWidth: 810, maxHeight: 0 });
+      } else {
+        window.electronAPI.setWindowConstraints({ minWidth: 380, minHeight: 400, maxWidth: 0, maxHeight: 0 });
+      }
+    }
+  }
+
+  const resizeObserver = new ResizeObserver(entries => {
+    for (let entry of entries) {
+      if (entry.contentRect.width > 650) {
+        document.body.classList.add('show-todo');
+        setWindowConstraints(true);
+      } else {
+        document.body.classList.remove('show-todo');
+        setWindowConstraints(false);
+      }
+    }
+  });
+  resizeObserver.observe(document.body);
+
+  // Sync todo panel height with app column
+  const appEl = document.querySelector('.app');
+  const todoPanel = $('todo-panel');
+  let syncHeightTo;
+    const appHeightObserver = new ResizeObserver(() => {
+      clearTimeout(syncHeightTo);
+      syncHeightTo = setTimeout(() => {
+        if (document.body.classList.contains('show-todo')) {
+          todoPanel.style.height = appEl.offsetHeight + 'px';
+        } else {
+          todoPanel.style.height = '';
+        }
+      }, 50);
+    });
+    appHeightObserver.observe(appEl);
+  // ==============================
+render();
+</script>
+</body>
+</html>
