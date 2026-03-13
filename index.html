@@ -1643,6 +1643,7 @@ setMode('pomodoro');
   renderTodos();
 
   function setWindowConstraints(isSplit) {
+    if (document.body.classList.contains('mini-mode')) return;
     if (window.electronAPI && window.electronAPI.setWindowConstraints) {
       if (isSplit) {
         window.electronAPI.setWindowConstraints({ minWidth: 380, minHeight: 400, maxWidth: 810, maxHeight: 0 });

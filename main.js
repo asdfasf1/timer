@@ -2,6 +2,7 @@
 const path = require('path');
 
 let mainWindow;
+let isMiniMode = false;
 const iconPath = path.join(__dirname, 'tomato.ico');
 
 function createWindow() {
@@ -43,10 +44,14 @@ ipcMain.handle('set-always-on-top', (event, enabled) => {
 ipcMain.on('resize-window', (event, size) => {
   if (mainWindow) {
     if (size.width === 250) {
+      isMiniMode = true;
       mainWindow.setMinimumSize(150, 110);
-      mainWindow.setResizable(true);
+      mainWindow.setMaximumSize(0, 0);
+      mainWindow.setResizable(false);
     } else {
+      isMiniMode = false;
       mainWindow.setMinimumSize(380, 600);
+      mainWindow.setMaximumSize(0, 0);
       mainWindow.setResizable(true);
     }
     mainWindow.setSize(size.width, size.height);
@@ -62,7 +67,7 @@ ipcMain.on('close-window', () => {
 });
 
 ipcMain.on('set-window-constraints', (event, c) => {
-  if (!mainWindow) return;
+  if (!mainWindow || isMiniMode) return;
   mainWindow.setMinimumSize(c.minWidth || 380, c.minHeight || 400);
   mainWindow.setMaximumSize(c.maxWidth || 99999, c.maxHeight || 99999);
 });
