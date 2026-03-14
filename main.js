@@ -67,6 +67,8 @@ ipcMain.on('resize-window', (event, size) => {
       mainWindow.setMinimumSize(size.width, size.height);
       mainWindow.setMaximumSize(size.width, size.height);
       mainWindow.setContentSize(size.width, size.height);
+      
+      // 이미 미니모드 상태면 resize 무시 (드래그 중 위치 복귀 & 매초 리사이징 방지)
     } else {
       isMiniMode = false;
       mainWindow.setResizable(true);

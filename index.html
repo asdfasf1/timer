@@ -295,7 +295,13 @@
     }
     .todo-text {
       flex: 1; font-size: 0.9rem; word-break: break-word;
+      cursor: text; outline: none; border-radius: 4px;
+      padding: 2px 4px; margin: -2px -4px;
+      transition: background 0.15s;
     }
+    .todo-text:hover { background: var(--bg); }
+    .todo-item.checked .todo-text:hover { background: transparent; }
+    .todo-text:focus { outline: 1px solid var(--accent); background: var(--bg); }
     .todo-del-btn {
       margin-left: auto;
       background: transparent; border: none; color: var(--muted);
@@ -540,7 +546,7 @@
       </div>
       <div class="stats-total" id="stats-total" style="text-align: right; margin-bottom: 8px;">총 0시간</div>
       <div class="heatmap-grid" id="heatmap-grid"></div>
-      <div class="heatmap-info" style="margin-top: 8px;">클릭하여 수정</div>
+      <div class="heatmap-info" style="margin-top: 8px;">1분 이상만 기록됨</div>
     </div>
 
     <div class="timer-wrap" id="dial-area">
@@ -896,7 +902,6 @@ function updateButtons() {
     startBtn.classList.remove('danger'); startBtn.classList.add('primary');
   }
   if (typeof updateBreathing === 'function') updateBreathing();
-  queueMiniWindowResize();
 }
 
 /* arc */
@@ -1009,7 +1014,6 @@ function render(){
   updateHandle();
   curStyle===1 ? drawArc() : drawDial();
   updatePreviews();
-  queueMiniWindowResize();
 }
 
 /* drag */
@@ -1354,9 +1358,17 @@ document.querySelectorAll('input[name="style"]').forEach(r=>{
   });
 });
 
+function initAccent() {
+  const savedAccent = localStorage.getItem('accentColor') || 'periwinkle';
+  document.body.setAttribute('data-accent', savedAccent);
+  const aRadio = document.querySelector(`input[name="accent"][value="${savedAccent}"]`);
+  if (aRadio) aRadio.checked = true;
+}
+
 document.querySelectorAll('input[name="accent"]').forEach(r=>{
   r.addEventListener('change',()=>{
     document.body.setAttribute('data-accent',r.value);
+    localStorage.setItem('accentColor', r.value);
     requestAnimationFrame(render);
   });
 });
@@ -1556,6 +1568,7 @@ miniUi.addEventListener('contextmenu', (e) => {
 
 initTheme();
 initVariants();
+initAccent();
 initPresets();
 initAlwaysOn();
 setMode('pomodoro');
@@ -1573,7 +1586,7 @@ setMode('pomodoro');
     todoPagination.innerHTML = '';
     // Auto-sort: unchecked first, checked at bottom
     let sorted = [...todos].sort((a,b) => {
-      if(a.checked === b.checked) return a.id - b.id;
+      if(a.checked === b.checked) return b.id - a.id; // 최신 항목이 상단
       return a.checked ? 1 : -1;
     });
 
@@ -1608,10 +1621,25 @@ setMode('pomodoro');
         }
       });
 
-      const span = document.createElement('span');
-      span.className = 'todo-text';
-      span.textContent = text;
-      
+      const textEl = document.createElement('div');
+      textEl.className = 'todo-text';
+      textEl.contentEditable = 'true';
+      textEl.spellcheck = false;
+      textEl.textContent = text;
+      textEl.addEventListener('blur', () => {
+        const newText = textEl.textContent.trim();
+        if (!newText) {
+          todos = todos.filter(t => t.id !== id);
+          saveTodos(); renderTodos(); return;
+        }
+        const item = todos.find(t => t.id === id);
+        if (item && item.text !== newText) { item.text = newText; saveTodos(); }
+      });
+      textEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); textEl.blur(); }
+        e.stopPropagation();
+      });
+
       const delBtn = document.createElement('button');
       delBtn.type = 'button';
       delBtn.className = 'todo-del-btn';
@@ -1623,7 +1651,7 @@ setMode('pomodoro');
       });
 
       mainCol.appendChild(cb);
-      mainCol.appendChild(span);
+      mainCol.appendChild(textEl);
       li.appendChild(mainCol);
       li.appendChild(delBtn);
       todoListEl.appendChild(li);
